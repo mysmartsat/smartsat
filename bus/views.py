@@ -12,8 +12,8 @@ from django.contrib.auth.decorators import login_required, permission_required
 from django.shortcuts import render, HttpResponse
 
 import commons.helper
-from .distancematrixcalcs import calc_duration, calc_est_arrival_times
-from .models import Bus, BusRoute, BusRouteDetails, BusSchedule
+from .distancematrixcalcs import calc_duration, calc_est_arrival_times, calc_est_arrival_times_opt
+from .models import Bus, BusRoute, BusRouteDetails, BusSchedule, BusStop
 from .models import TransitLog, BusArrivalLog, BusArrivalLogEntry
 
 BUS_SCHEDULE_INTERVAL_MINUTES = 40
@@ -56,7 +56,7 @@ def getEstimatedArrivalAJAX(request):
     user_selected_route = user_data.get('route')
     user_selected_bus_stop = user_data.get('bus_stop_id')
     calc_schedule = user_data.get('calc_schedule')
-
+    selected_bus_stop_id = int(user_selected_bus_stop)
     result = {
         'est_arrival': "",
         'scheduled_arrival': ""
@@ -72,6 +72,7 @@ def getEstimatedArrivalAJAX(request):
     # filter Bus models by route (for now)
     # assumptions:  only one bus at anytime per route
     bus = Bus.objects.filter(route=user_selected_route).first()  # TODO filter for multiple busses
+    bus.route = BusRoute.objects.filter(pk=user_selected_route).first()
 
     dateTimeNow = datetime.now()
     day_of_week = getScheduleDayOfWeekLetter(dateTimeNow)
@@ -86,10 +87,22 @@ def getEstimatedArrivalAJAX(request):
 
     busCoord = bus.getCoordinates()
     # send Bus obj coords and BusStop obj coords to dist matrix calc
-    travelDuration = calc_duration(busCoord, busStopCoord)
-    if 'duration' in travelDuration['rows'][0]['elements'][0].keys():
-        result['est_arrival'] = travelDuration['rows'][0]['elements'][0]['duration']['text']
-
+    # travelDuration = calc_duration(busCoord, busStopCoord)
+    # Todo
+    """
+    If the latest bus stop index can't get from the bus driver side, it needs to calculate which two bus stops are the bus between
+    So far, couldn't find a accurate algorithm to do this. Tried polyline and haversine, not that accuracy on some special condition.
+    """
+    bus_stop_id = BusStop.objects.get(stop_id=selected_bus_stop_id).id
+    route_index_id = BusRouteDetails.objects.get(bus_stop_id=bus_stop_id, parent_route_id=user_selected_route).route_index
+    travelDuration = calc_est_arrival_times_opt(bus.route, bus.latitude, bus.longitude, bus.latest_route_stop_index, route_index_id)
+    # if 'duration' in travelDuration['rows'][0]['elements'][0].keys():
+    #     result['est_arrival'] = travelDuration['rows'][0]['elements'][0]['duration']['text']
+    next_arrival_est_time = dateTimeNow + timedelta(
+        seconds=travelDuration[route_index_id]['rows'][0]['elements'][0]['duration']['value'])
+    result['scheduled_arrival'] = \
+        f'{next_arrival_est_time.strftime("%I:%M %p")} on {dateTimeNow.date().strftime("%B %d, %Y")}'
+    result['est_arrival'] = travelDuration[route_index_id]['rows'][0]['elements'][0]['duration']['text']
     # return estimated arrival time result to user
     return HttpResponse(json.dumps(result))
 

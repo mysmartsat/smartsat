@@ -1,6 +1,7 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="makemigrations" type="PythonConfigurationType" factoryName="Python">
     <module name="django_smartmap" />
+    <option name="ENV_FILES" value="" />
     <option name="INTERPRETER_OPTIONS" value="" />
     <option name="PARENT_ENVS" value="true" />
     <envs>
@@ -9,9 +10,9 @@
     </envs>
     <option name="SDK_HOME" value="C:\Users\willn\miniconda3\envs\django_smartmap\python.exe" />
     <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
-    <option name="IS_MODULE_SDK" value="false" />
+    <option name="IS_MODULE_SDK" value="true" />
     <option name="ADD_CONTENT_ROOTS" value="true" />
-    <option name="ADD_SOURCE_ROOTS" value="true" />
+    <option name="ADD_SOURCE_ROOTS" value="false" />
     <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
     <option name="SCRIPT_NAME" value="$PROJECT_DIR$/manage.py" />
     <option name="PARAMETERS" value="makemigrations" />
