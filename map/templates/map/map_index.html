@@ -1,0 +1,157 @@
+{% extends "main/base.html" %}
+{% load static %}
+
+{% block extend_head %}
+    <title>Add Map</title>
+    {#   I don't think the following script is needed. Map still loads.   #}
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=default" nonce="{{ request.csp_nonce }}"></script>
+    <link rel="stylesheet" nonce="{{ request.csp_nonce }}" href="{% static 'map/css/mapstyles.css' %}"/>
+    <style nonce="{{ request.csp_nonce }}">
+        /* Always set the mapindex height explicitly to define the size of the div
+         * element that contains the mapindex. */
+        #map {
+            height: 100vh; /* Google's suggested height of 100% may prevent map from displaying */
+            width: 100vw;
+        }
+
+        #routeMenu {
+            max-height: 100vh;
+            overflow: auto;
+        }
+
+        #routeMenuBody {
+            scrollbar-width: thin;
+            padding: 0; /* .offcanvas-body has initial padding, but this removes it. */
+        }
+
+        #loadingScreen {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            z-index: 11;
+        }
+
+        #loadingScreenContent {
+            text-align: center;
+            padding: 50vh 0;
+        }
+
+        .btn.btn-map-left {
+            position: absolute;
+            z-index: 10;
+        }
+
+        /* Light mode */
+        @media (prefers-color-scheme: light) {
+            #loadingScreen {
+                background-color: white;
+            }
+
+            #loadingScreenContent {
+                color: black;
+                /* Spinner color is automatically handled cause Bootstrap is pretty cool like that */
+            }
+        }
+
+        /* Dark mode */
+        @media (prefers-color-scheme: dark) {
+            #loadingScreen {
+                background-color: black;
+            }
+
+            #loadingScreenContent {
+                color: white;
+            }
+        }
+    </style>
+    <script type="text/javascript" nonce="{{ request.csp_nonce }}">
+        const MAP_CENTER = {lat: {{ lat_coord }}, lng: {{ lng_coord }}}
+        const ALL_ACTIVE_ROUTES = {{ all_routes | safe }};
+        const AJAX_URL_ROUTE_DETAILS = "{% url 'map:routedetails-ajax' %}"
+        const AJAX_URL_EST_ARRIVAL = "{% url 'bus:busestarrival-ajax' %}"
+        const AJAX_URL_ACTIVE_BUSSES_ON_ROUTE = "{% url 'bus:activebussesonroute-ajax' %}"
+        const AJAX_URL_ROUTE_POLYLINE_ENCODING = "{% url 'bus:busroutepolyline-ajax' %}"
+        const AJAX_URL_BUS_OCCUPANCY_STATUS = "{% url 'map:occupancy-status-ajax' %}"
+    </script>
+
+    <script type="text/javascript" nonce="{{ request.csp_nonce }}" src="{% static 'map/js/map_index.js' %}"></script>
+
+    <!-- Front-end stuff -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script type="text/javascript" nonce="{{ request.csp_nonce }}"
+            src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <link rel="stylesheet" nonce="{{ request.csp_nonce }}" href="{% static 'map/css/offcanvas.css' %}"/>
+
+
+{% endblock %}
+
+
+{% block content %}
+
+    <!--The div element for the mapindex -->
+    {#    <div id="map"></div>#}
+    <div id="selectRoutesButtonDiv">
+        <button class="btn btn-primary btn-map-left" type="button" data-bs-toggle="offcanvas"
+                data-bs-target="#routeMenu" aria-controls="offcanvasRoutes">
+            Select Route
+        </button>
+    </div>
+    <div id="legend">
+        <a class="btn btn-info" data-bs-toggle="collapse" href="#legendContent" role="button" aria-expanded="true"
+           aria-controls="legendContent">
+            Seat Availability
+        </a>
+        <div class="collapse show" id="legendContent">
+        </div>
+    </div>
+
+    <div class="d-flex">
+
+        <div class="d-shrink offcanvas-lg offcanvas-start" data-bs-scroll="true" data-bs-backdrop="false" tabindex="-1"
+             id="routeMenu" aria-labelledby="Bus Route Menu">
+            <div class="offcanvas-header">
+                <h5 class="offcanvas-title" id="routeMenuTitle">Routes</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#routeMenu"
+                        aria-label="Close"></button>
+            </div>
+            <div class="offcanvas-body" id="routeMenuBody">
+                <div id="routeMenuContent">
+
+                    <div class="accordion accordion-flush" id="routeMenuAccordion">
+                        <script type="text/javascript" nonce="{{ request.csp_nonce }}"
+                                src={% static 'map/js/offcanvas.js' %}></script>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!--The div element for the mapindex -->
+        <div id="map" class="d-grow"></div>
+
+    </div>
+
+    <div id="loadingScreen">
+        <div id="loadingScreenContent">
+            <div class="spinner-border" role="status"></div>
+            <h3>Loading bus map...</h3>
+        </div>
+    </div>
+
+    <!--
+     The `defer` attribute causes the callback to execute after the full HTML
+     document has been parsed. For non-blocking uses, avoiding race conditions,
+     and consistent behavior across browsers, consider loading using Promises
+     with https://www.npmjs.com/package/@googlemaps/js-api-loader.
+
+     DO NOT use the `async` attribute that is shown in some example html in Google's tutorials, the map may not
+     load.
+    -->
+    <script
+            src="https://maps.googleapis.com/maps/api/js?key={{ google_api_key|safe }}&callback=initMap&v=weekly" defer
+            nonce="{{ request.csp_nonce }}">
+    </script>
+
+
+{% endblock %}
