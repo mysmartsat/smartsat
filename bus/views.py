@@ -4,12 +4,15 @@ import json
 from datetime import datetime
 from datetime import timedelta
 
+import googlemaps
+import polyline
 from django.conf import settings
 from django.utils import timezone
 
 import pytz
 from django.contrib.auth.decorators import login_required, permission_required
 from django.shortcuts import render, HttpResponse
+from googlemaps.directions import directions
 
 import commons.helper
 from .distancematrixcalcs import calc_duration, calc_est_arrival_times, calc_est_arrival_times_opt
@@ -21,6 +24,7 @@ BUS_SCHEDULE_INTERVAL_MINUTES = 40
 BUS_STOP_ARRIVAL_PROXIMITY = 10  # meters
 ARRIVAL_LOG_FREQUENCY = 60  # seconds
 
+gmaps = googlemaps.Client(key=settings.GOOGLE_PYTHON_API_KEY)
 """
 Bus Driver page
 """
@@ -149,8 +153,41 @@ def getBusRouteGmapsPolylineEncodingAJAX(request):
     # get the BusRoute instance and return the polyline encoding
     busRoute = BusRoute.objects.filter(id=user_selected_route).first()
 
-    to_send = {'polyline_encoding': busRoute.gmaps_polyline_encoding,
-               'polyline_bounds': ast.literal_eval(busRoute.gmaps_polyline_bounds)}
+    bus = Bus.objects.filter(route=user_selected_route).first()
+
+
+    if bus is None:
+        to_send = {'polyline_encoding': busRoute.gmaps_polyline_encoding,
+                   'polyline_bounds': ast.literal_eval(busRoute.gmaps_polyline_bounds)}
+    else:
+        latest_route_stop_index = bus.latest_route_stop_index
+
+        busStop = BusRouteDetails.objects.get(parent_route=user_selected_route,
+                                              route_index=latest_route_stop_index).bus_stop
+        busStopCoord = busStop.getCoordinates()
+        first_stop_coord = busRoute.first_stop.getCoordinates()
+        bus_coord = bus.getCoordinates()
+
+        directions_results = []
+        decoded_coordinates = []
+        # Get the directions
+        directions_results.append(directions(gmaps, origin=first_stop_coord, destination=busStopCoord, mode="transit",
+                                       transit_mode="bus"))
+        directions_results.append(directions(gmaps, origin=busStopCoord, destination=bus_coord, mode="driving"))
+
+        # Check if the directions_result is not empty
+        for directions_result in directions_results:
+            if directions_result:
+                # Get the first route from the directions result
+                route = directions_result[0]
+                polyline_str = route['overview_polyline']['points']
+                coordinates = polyline.decode(polyline_str)
+                decoded_coordinates.extend(coordinates)
+
+
+        combined_polyline = polyline.encode(decoded_coordinates)
+        to_send = {'polyline_encoding': combined_polyline,
+                   'polyline_bounds': ast.literal_eval(busRoute.gmaps_polyline_bounds)}
 
     return HttpResponse(json.dumps(to_send))
 
